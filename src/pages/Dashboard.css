@@ -1,0 +1,57 @@
+.dashboard { display: flex; flex-direction: column; gap: 14px; }
+
+.dash-header { padding: 4px 0 8px; }
+.dash-title { font-size: 26px; font-weight: 600; letter-spacing: -0.02em; color: var(--text); }
+.dash-sub { font-size: 13px; color: var(--text2); margin-top: 2px; }
+
+.storage-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+.storage-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+.storage-mb { font-size: 28px; font-weight: 600; color: var(--accent); letter-spacing: -0.02em; }
+.storage-label { font-size: 12px; color: var(--text2); margin-top: 2px; }
+.storage-pct { font-size: 20px; font-weight: 500; color: var(--text2); }
+.storage-bar { height: 6px; background: var(--bg3); border-radius: 3px; overflow: hidden; }
+.storage-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), #3b82f6);
+  border-radius: 3px;
+  transition: width 0.6s ease;
+}
+
+.signal-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+.signal-title { font-size: 12px; color: var(--text2); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.06em; }
+.signal-bars { display: flex; align-items: flex-end; gap: 5px; }
+.signal-bar { width: 10px; background: var(--bg3); border-radius: 2px; transition: background 0.3s; }
+.signal-bar.active { background: var(--accent); }
+.signal-text { font-size: 13px; color: var(--text); margin-left: 10px; }
+.signal-warning { font-size: 12px; color: var(--warning); margin-top: 10px; }
+
+.stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.stat-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  text-align: center;
+}
+.stat-card.stat-warning { border-color: #3d2a10; background: #1a1508; }
+.stat-number { font-size: 28px; font-weight: 600; color: var(--text); }
+.stat-label { font-size: 11px; color: var(--text2); margin-top: 4px; }
+
+.queue-banner {
+  background: #1a1508;
+  border: 1px solid #3d2a10;
+  border-radius: var(--radius);
+  padding: 14px 16px;
+}
+.queue-banner-title { font-size: 14px; font-weight: 500; color: var(--warning); }
+.queue-banner-sub { font-size: 12px; color: #a37c3a; margin-top: 4px; }
