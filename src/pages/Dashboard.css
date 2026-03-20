@@ -47,6 +47,76 @@
 .stat-number { font-size: 28px; font-weight: 600; color: var(--text); }
 .stat-label { font-size: 11px; color: var(--text2); margin-top: 4px; }
 
+/* Predictor */
+.prefetch-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: #0d1a2e;
+  border: 1px solid #1a3558;
+  border-radius: var(--radius);
+  font-size: 13px;
+  color: #60a5fa;
+}
+.prefetch-spinner {
+  width: 14px; height: 14px;
+  border: 2px solid #1a3558;
+  border-top-color: #60a5fa;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.prefetched-banner {
+  padding: 12px 14px;
+  background: #0d1f14;
+  border: 1px solid #1a3d28;
+  border-radius: var(--radius);
+}
+.prefetched-title { font-size: 13px; font-weight: 500; color: var(--accent); margin-bottom: 6px; }
+.prefetched-item { font-size: 11px; color: #4ade80; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.predictor-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+.predictor-title { font-size: 14px; font-weight: 500; color: var(--text); margin-bottom: 4px; }
+.predictor-sub { font-size: 12px; color: var(--text2); margin-bottom: 12px; }
+.predictor-list { display: flex; flex-direction: column; gap: 8px; }
+.predictor-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--bg3);
+  border-radius: 8px;
+}
+.predictor-icon { font-size: 14px; flex-shrink: 0; }
+.predictor-url { flex: 1; font-size: 12px; color: var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.predictor-count { font-size: 11px; font-weight: 600; color: var(--accent); flex-shrink: 0; }
+
+.weak-hours-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+.weak-hours-list { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.weak-hour-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  background: var(--bg3);
+  border-radius: 8px;
+}
+.weak-hour-time { font-size: 13px; color: var(--text); }
+.weak-hour-count { font-size: 11px; color: var(--warning); }
+
 .queue-banner {
   background: #1a1508;
   border: 1px solid #3d2a10;

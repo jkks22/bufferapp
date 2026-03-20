@@ -2,12 +2,14 @@ import { useState, useEffect } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, cacheManager, queueManager } from '../lib/db'
 import { useNetwork } from '../hooks/useNetwork'
+import { usePredictor } from '../hooks/usePredictor'
 import './Dashboard.css'
 
 const MAX_STORAGE_BYTES = 150 * 1024 * 1024
 
 export default function Dashboard() {
   const { isOnline, signalStrength } = useNetwork()
+  const { suggestions, weakHours, prefetching, lastPrefetched, formatHour } = usePredictor()
   const [totalSize, setTotalSize] = useState(0)
 
   const queueCount = useLiveQuery(() => queueManager.count(), []) ?? 0
@@ -82,6 +84,58 @@ export default function Dashboard() {
           <div className="stat-label">{isOnline ? 'conectado' : 'offline'}</div>
         </div>
       </div>
+
+      {/* Predictor: pre-descarga en curso */}
+      {prefetching && (
+        <div className="prefetch-banner">
+          <div className="prefetch-spinner" />
+          <span>Pre-descargando contenido frecuente...</span>
+        </div>
+      )}
+
+      {/* Predictor: últimas pre-descargas */}
+      {lastPrefetched.length > 0 && (
+        <div className="prefetched-banner">
+          <div className="prefetched-title">✓ Pre-descargado automáticamente</div>
+          {lastPrefetched.map(url => (
+            <div key={url} className="prefetched-item">{url}</div>
+          ))}
+        </div>
+      )}
+
+      {/* Predictor: sugerencias */}
+      {suggestions.length > 0 && (
+        <div className="predictor-card">
+          <div className="predictor-title">📊 Sugerencias del predictor</div>
+          <p className="predictor-sub">Contenido que usas frecuentemente con poca señal</p>
+          <div className="predictor-list">
+            {suggestions.map(s => (
+              <div key={s.resourceId} className="predictor-item">
+                <span className="predictor-icon">
+                  {s.resourceType === 'page' ? '🌐' : '📄'}
+                </span>
+                <span className="predictor-url">{s.resourceId}</span>
+                <span className="predictor-count">{s.count}x</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Predictor: horas sin señal */}
+      {weakHours.length > 0 && (
+        <div className="weak-hours-card">
+          <div className="predictor-title">🕐 Horas con señal débil frecuente</div>
+          <div className="weak-hours-list">
+            {weakHours.map(({ hour, count }) => (
+              <div key={hour} className="weak-hour-item">
+                <span className="weak-hour-time">{formatHour(hour)}</span>
+                <span className="weak-hour-count">{count} veces</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {!isOnline && queueCount > 0 && (
         <div className="queue-banner">
