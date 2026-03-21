@@ -1,19 +1,24 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, cacheManager } from '../lib/db'
 import { useNetwork } from '../hooks/useNetwork'
+import { usePredictor } from '../hooks/usePredictor'
 import './CachePage.css'
 
 export default function CachePage() {
   const { isOnline } = useNetwork()
+  const { logAccess, shouldPrefetch } = usePredictor()
   const [tab, setTab] = useState('pages')
   const [urlInput, setUrlInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [dragging, setDragging] = useState(false)
+  const fileInputRef = useRef()
 
   const pages = useLiveQuery(() => db.pages.orderBy('cachedAt').reverse().toArray(), []) ?? []
   const files = useLiveQuery(() => db.files.orderBy('cachedAt').reverse().toArray(), []) ?? []
 
+  // Guarda una página web
   async function cachePage() {
     if (!urlInput.trim()) return
     if (!isOnline) { setError('Sin conexión — no puedes descargar nuevas páginas'); return }
@@ -27,12 +32,86 @@ export default function CachePage() {
       const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i)
       const title = titleMatch ? titleMatch[1].trim() : urlInput
       await cacheManager.savePage(urlInput, html, title)
+      await logAccess(urlInput, 'page')
       setUrlInput('')
     } catch (e) {
       setError('No se pudo descargar la página. ¿Es una URL válida?')
     } finally {
       setLoading(false)
     }
+  }
+
+  // Guarda un archivo en IndexedDB
+  async function saveFile(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = async (e) => {
+        try {
+          await db.files.add({
+            name: file.name,
+            type: file.type || 'application/octet-stream',
+            size: file.size,
+            data: e.target.result, // ArrayBuffer
+            cachedAt: Date.now(),
+            status: 'cached'
+          })
+          await logAccess(file.name, 'file')
+          resolve()
+        } catch (err) {
+          reject(err)
+        }
+      }
+      reader.onerror = reject
+      reader.readAsArrayBuffer(file)
+    })
+  }
+
+  // Maneja archivos soltados con drag & drop
+  async function handleDrop(e) {
+    e.preventDefault()
+    setDragging(false)
+    const droppedFiles = Array.from(e.dataTransfer.files)
+    if (droppedFiles.length === 0) return
+    setLoading(true)
+    setError('')
+    try {
+      for (const file of droppedFiles) {
+        await saveFile(file)
+      }
+    } catch {
+      setError('Error al guardar algún archivo.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Maneja archivos seleccionados con el input
+  async function handleFileInput(e) {
+    const selectedFiles = Array.from(e.target.files)
+    if (selectedFiles.length === 0) return
+    setLoading(true)
+    setError('')
+    try {
+      for (const file of selectedFiles) {
+        await saveFile(file)
+      }
+    } catch {
+      setError('Error al guardar algún archivo.')
+    } finally {
+      setLoading(false)
+      e.target.value = ''
+    }
+  }
+
+  // Descarga un archivo guardado
+  function downloadFile(file) {
+    const blob = new Blob([file.data], { type: file.type })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = file.name
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   function formatSize(bytes) {
@@ -49,6 +128,17 @@ export default function CachePage() {
     })
   }
 
+  function getFileIcon(type) {
+    if (type.includes('pdf')) return '📕'
+    if (type.includes('image')) return '🖼️'
+    if (type.includes('video')) return '🎬'
+    if (type.includes('audio')) return '🎵'
+    if (type.includes('zip') || type.includes('rar')) return '🗜️'
+    if (type.includes('word') || type.includes('document')) return '📝'
+    if (type.includes('sheet') || type.includes('excel')) return '📊'
+    return '📄'
+  }
+
   return (
     <div className="cache-page">
       <h2 className="page-title">Caché</h2>
@@ -62,6 +152,7 @@ export default function CachePage() {
         </button>
       </div>
 
+      {/* Guardar página */}
       {tab === 'pages' && (
         <div className="url-form">
           <input
@@ -78,8 +169,37 @@ export default function CachePage() {
         </div>
       )}
 
+      {/* Zona de drag & drop para archivos */}
+      {tab === 'files' && (
+        <div
+          className={`dropzone ${dragging ? 'dragging' : ''} ${loading ? 'loading' : ''}`}
+          onDragOver={e => { e.preventDefault(); setDragging(true) }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={handleDrop}
+          onClick={() => fileInputRef.current.click()}
+        >
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            style={{ display: 'none' }}
+            onChange={handleFileInput}
+          />
+          <div className="dropzone-icon">{loading ? '⏳' : '📂'}</div>
+          <div className="dropzone-text">
+            {loading
+              ? 'Guardando archivos...'
+              : dragging
+              ? 'Suelta los archivos aquí'
+              : 'Arrastra archivos aquí o toca para seleccionar'}
+          </div>
+          <div className="dropzone-sub">PDF, imágenes, documentos, videos y más</div>
+        </div>
+      )}
+
       {error && <p className="form-error">{error}</p>}
 
+      {/* Lista de páginas */}
       {tab === 'pages' && (
         <div className="item-list">
           {pages.length === 0 && <div className="empty-state">Ninguna página guardada aún</div>}
@@ -96,16 +216,18 @@ export default function CachePage() {
         </div>
       )}
 
+      {/* Lista de archivos */}
       {tab === 'files' && (
         <div className="item-list">
           {files.length === 0 && <div className="empty-state">Ningún archivo guardado aún</div>}
           {files.map(file => (
             <div key={file.id} className="cache-item">
-              <div className="item-icon">📄</div>
+              <div className="item-icon">{getFileIcon(file.type)}</div>
               <div className="item-body">
                 <div className="item-name">{file.name}</div>
-                <div className="item-meta">{file.type} · {formatSize(file.size)} · {formatDate(file.cachedAt)}</div>
+                <div className="item-meta">{formatSize(file.size)} · {formatDate(file.cachedAt)}</div>
               </div>
+              <button className="btn-download" onClick={() => downloadFile(file)} title="Descargar">↓</button>
               <button className="btn-delete" onClick={() => db.files.delete(file.id)}>✕</button>
             </div>
           ))}
