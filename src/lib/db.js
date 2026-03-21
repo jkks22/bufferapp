@@ -1,4 +1,5 @@
 import Dexie from 'dexie'
+import LZString from 'lz-string'
 
 export const db = new Dexie('BufferAppDB')
 
@@ -12,36 +13,82 @@ db.version(1).stores({
 })
 
 export const cacheManager = {
+  // Guarda página comprimida
   async savePage(url, html, title) {
-    const size = new Blob([html]).size
-    await db.pages.put({ id: url, title, html, size, cachedAt: Date.now(), status: 'cached' })
+    const compressed = LZString.compress(html)
+    const size = new Blob([compressed]).size
+    const originalSize = new Blob([html]).size
+    await db.pages.put({
+      id: url,
+      title,
+      html: compressed,
+      compressed: true,
+      size,
+      originalSize,
+      cachedAt: Date.now(),
+      status: 'cached'
+    })
+    return { size, originalSize, ratio: Math.round((1 - size / originalSize) * 100) }
   },
+
+  // Lee página y descomprime
   async getPage(url) {
-    return db.pages.get(url)
+    const page = await db.pages.get(url)
+    if (!page) return null
+    if (page.compressed) {
+      return { ...page, html: LZString.decompress(page.html) }
+    }
+    return page
   },
+
   async listPages() {
     return db.pages.orderBy('cachedAt').reverse().toArray()
   },
+
   async deletePage(url) {
     await db.pages.delete(url)
   },
+
+  // Guarda respuesta de API comprimida
   async saveApiResponse(url, data, ttlSeconds = 3600) {
+    const json = JSON.stringify(data)
+    const compressed = LZString.compress(json)
     await db.apiCache.put({
-      id: url, data, cachedAt: Date.now(),
-      expiresAt: Date.now() + ttlSeconds * 1000, status: 'cached'
+      id: url,
+      data: compressed,
+      compressed: true,
+      cachedAt: Date.now(),
+      expiresAt: Date.now() + ttlSeconds * 1000,
+      status: 'cached'
     })
   },
+
+  // Lee respuesta de API y descomprime
   async getApiResponse(url) {
     const entry = await db.apiCache.get(url)
     if (!entry) return null
     if (entry.expiresAt < Date.now()) { await db.apiCache.delete(url); return null }
+    if (entry.compressed) {
+      return JSON.parse(LZString.decompress(entry.data))
+    }
     return entry.data
   },
+
   async getTotalSize() {
     const pages = await db.pages.toArray()
     const files = await db.files.toArray()
     return pages.reduce((s, p) => s + (p.size || 0), 0) +
            files.reduce((s, f) => s + (f.size || 0), 0)
+  },
+
+  // Calcula cuánto espacio se ahorró con compresión
+  async getCompressionStats() {
+    const pages = await db.pages.toArray()
+    const totalCompressed = pages.reduce((s, p) => s + (p.size || 0), 0)
+    const totalOriginal = pages.reduce((s, p) => s + (p.originalSize || p.size || 0), 0)
+    const saved = totalOriginal - totalCompressed
+    const ratio = totalOriginal > 0 ? Math.round((saved / totalOriginal) * 100) : 0
+    return { totalCompressed, totalOriginal, saved, ratio }
   }
 }
 

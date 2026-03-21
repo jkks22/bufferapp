@@ -22,6 +22,19 @@
   transition: width 0.6s ease;
 }
 
+/* Compresión */
+.compression-card {
+  background: #0d1a2e;
+  border: 1px solid #1a3558;
+  border-radius: var(--radius);
+  padding: 16px;
+}
+.compression-title { font-size: 14px; font-weight: 500; color: #60a5fa; margin-bottom: 12px; }
+.compression-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+.compression-stat { text-align: center; }
+.compression-number { font-size: 18px; font-weight: 600; color: #93c5fd; }
+.compression-label { font-size: 10px; color: #4a7ab5; margin-top: 2px; }
+
 .signal-card {
   background: var(--bg2);
   border: 1px solid var(--border);
@@ -47,7 +60,6 @@
 .stat-number { font-size: 28px; font-weight: 600; color: var(--text); }
 .stat-label { font-size: 11px; color: var(--text2); margin-top: 4px; }
 
-/* Predictor */
 .prefetch-banner {
   display: flex;
   align-items: center;

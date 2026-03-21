@@ -11,6 +11,7 @@ export default function Dashboard() {
   const { isOnline, signalStrength } = useNetwork()
   const { suggestions, weakHours, prefetching, lastPrefetched, formatHour } = usePredictor()
   const [totalSize, setTotalSize] = useState(0)
+  const [compressionStats, setCompressionStats] = useState(null)
 
   const queueCount = useLiveQuery(() => queueManager.count(), []) ?? 0
   const cachedPages = useLiveQuery(() => db.pages.count(), []) ?? 0
@@ -18,10 +19,18 @@ export default function Dashboard() {
 
   useEffect(() => {
     cacheManager.getTotalSize().then(setTotalSize)
+    cacheManager.getCompressionStats().then(setCompressionStats)
   }, [cachedPages, cachedFiles])
 
   const storagePercent = Math.min(100, (totalSize / MAX_STORAGE_BYTES) * 100)
   const storageMB = (totalSize / 1024 / 1024).toFixed(1)
+
+  function formatSize(bytes) {
+    if (!bytes) return '0 B'
+    if (bytes < 1024) return `${bytes} B`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+    return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+  }
 
   return (
     <div className="dashboard">
@@ -42,6 +51,27 @@ export default function Dashboard() {
           <div className="storage-fill" style={{ width: `${storagePercent}%` }} />
         </div>
       </div>
+
+      {/* Stats de compresión */}
+      {compressionStats && compressionStats.ratio > 0 && (
+        <div className="compression-card">
+          <div className="compression-title">🗜️ Compresión activa</div>
+          <div className="compression-grid">
+            <div className="compression-stat">
+              <div className="compression-number">{compressionStats.ratio}%</div>
+              <div className="compression-label">espacio ahorrado</div>
+            </div>
+            <div className="compression-stat">
+              <div className="compression-number">{formatSize(compressionStats.saved)}</div>
+              <div className="compression-label">bytes liberados</div>
+            </div>
+            <div className="compression-stat">
+              <div className="compression-number">{formatSize(compressionStats.totalOriginal)}</div>
+              <div className="compression-label">tamaño original</div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="signal-card">
         <div className="signal-title">Señal actual</div>
@@ -85,7 +115,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Predictor: pre-descarga en curso */}
       {prefetching && (
         <div className="prefetch-banner">
           <div className="prefetch-spinner" />
@@ -93,7 +122,6 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Predictor: últimas pre-descargas */}
       {lastPrefetched.length > 0 && (
         <div className="prefetched-banner">
           <div className="prefetched-title">✓ Pre-descargado automáticamente</div>
@@ -103,7 +131,6 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Predictor: sugerencias */}
       {suggestions.length > 0 && (
         <div className="predictor-card">
           <div className="predictor-title">📊 Sugerencias del predictor</div>
@@ -122,7 +149,6 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Predictor: horas sin señal */}
       {weakHours.length > 0 && (
         <div className="weak-hours-card">
           <div className="predictor-title">🕐 Horas con señal débil frecuente</div>
