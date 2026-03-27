@@ -40,6 +40,10 @@ export default function Layout({ children }) {
           <span className="nav-icon">📦</span>
           <span className="nav-label">Caché</span>
         </NavLink>
+        <NavLink to="/messages" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+          <span className="nav-icon">💬</span>
+          <span className="nav-label">Mensajes</span>
+        </NavLink>
         <NavLink to="/queue" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
           <span className="nav-icon">🔄</span>
           <span className="nav-label">Cola</span>

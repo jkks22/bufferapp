@@ -12,6 +12,11 @@ db.version(1).stores({
   usageLog: '++id, resourceId, resourceType, accessedAt, signalStrength',
 })
 
+// v2: agrega índice serverId a messages para deduplicar al sincronizar con el servidor
+db.version(2).stores({
+  messages: '++id, serverId, roomId, content, author, createdAt, synced',
+})
+
 export const cacheManager = {
   // Guarda página comprimida
   async savePage(url, html, title) {
