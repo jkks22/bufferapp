@@ -36,7 +36,12 @@ export const cacheManager = {
     const page = await db.pages.get(url)
     if (!page) return null
     if (page.compressed) {
-      return { ...page, html: LZString.decompress(page.html) }
+      try {
+        return { ...page, html: LZString.decompress(page.html) }
+      } catch {
+        await db.pages.delete(url)
+        return null
+      }
     }
     return page
   },
