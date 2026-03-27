@@ -1,0 +1,31 @@
+.install-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: #1a1a2e;
+  border-bottom: 1px solid #863bff44;
+  gap: 12px;
+}
+
+.install-text {
+  font-size: 13px;
+  color: #c4b5fd;
+  flex: 1;
+}
+
+.install-btn {
+  padding: 6px 14px;
+  background: #863bff;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.install-btn:hover {
+  background: #7c3aed;
+}

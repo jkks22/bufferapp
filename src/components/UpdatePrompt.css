@@ -1,0 +1,51 @@
+.update-prompt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: #1c1c14;
+  border-bottom: 1px solid #eab30844;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.update-text {
+  font-size: 13px;
+  color: #fde68a;
+  flex: 1;
+}
+
+.update-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.update-btn {
+  padding: 6px 14px;
+  background: #eab308;
+  color: #000;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.update-btn:hover {
+  background: #ca8a04;
+}
+
+.update-dismiss {
+  padding: 6px 12px;
+  background: transparent;
+  color: #a3a3a3;
+  border: 1px solid #404040;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.update-dismiss:hover {
+  border-color: #737373;
+  color: #e5e5e5;
+}

@@ -1,5 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import { useNetwork } from '../hooks/useNetwork'
+import InstallBanner from './InstallBanner'
+import UpdatePrompt from './UpdatePrompt'
 import './Layout.css'
 
 const SIGNAL_LABELS = ['Sin señal', 'Débil', 'Normal', 'Buena', 'Excelente']
@@ -10,6 +12,8 @@ export default function Layout({ children }) {
 
   return (
     <div className="layout">
+      <UpdatePrompt />
+      <InstallBanner />
       <div
         className={`network-bar ${isOnline ? 'online' : 'offline'}`}
         style={{ '--signal-color': SIGNAL_COLORS[signalStrength] }}
