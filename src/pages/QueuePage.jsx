@@ -77,7 +77,7 @@ export default function QueuePage() {
 
       <div className="dev-actions">
         <p className="dev-label">Modo desarrollo</p>
-        <div class="dev-buttons">
+        <div className="dev-buttons">
           <button className="btn-dev" onClick={addDemoItem}>+ Agregar item de prueba</button>
           {queue.length > 0 && (
             <button className="btn-dev danger" onClick={clearAll}>Limpiar cola</button>
