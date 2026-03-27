@@ -159,3 +159,41 @@
 }
 .toggle-btn.on { background: #1a3a1a; color: #4ade80; border: 1px solid #22c55e44; }
 .toggle-btn.off { background: #222; color: var(--text2); border: 1px solid var(--border); }
+
+/* Alertas de almacenamiento */
+.storage-alert {
+  padding: 14px 16px;
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.storage-alert.full { background: #2a0f0f; border: 1px solid #5a2020; }
+.storage-alert.warn { background: #1f1a0a; border: 1px solid #5a4a0a; }
+.storage-alert-title { font-size: 14px; font-weight: 600; }
+.storage-alert.full .storage-alert-title { color: var(--danger); }
+.storage-alert.warn .storage-alert-title { color: var(--warning); }
+.storage-alert-sub { font-size: 12px; color: var(--text2); margin: 0; }
+.storage-alert-actions { display: flex; gap: 8px; margin-top: 4px; }
+.btn-clear-old {
+  padding: 6px 14px;
+  background: #1f1a0a;
+  border: 1px solid var(--warning);
+  border-radius: 8px;
+  color: var(--warning);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-clear-old:hover { background: #2a240f; }
+.btn-clear-all {
+  padding: 6px 14px;
+  background: #2a0f0f;
+  border: 1px solid var(--danger);
+  border-radius: 8px;
+  color: var(--danger);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-clear-all:hover { background: #3d1515; }

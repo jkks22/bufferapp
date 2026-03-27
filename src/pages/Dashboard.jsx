@@ -24,6 +24,24 @@ export default function Dashboard() {
 
   const storagePercent = Math.min(100, (totalSize / MAX_STORAGE_BYTES) * 100)
   const storageMB = (totalSize / 1024 / 1024).toFixed(1)
+  const storageFull = storagePercent >= 100
+  const storageWarning = storagePercent >= 80 && !storageFull
+
+  async function handleClearOld() {
+    const { deletedPages, deletedFiles } = await cacheManager.clearOldCache(30)
+    if (deletedPages + deletedFiles === 0) {
+      await cacheManager.clearOldCache(7)
+    }
+    cacheManager.getTotalSize().then(setTotalSize)
+    cacheManager.getCompressionStats().then(setCompressionStats)
+  }
+
+  async function handleClearAll() {
+    if (!window.confirm('¿Eliminar todo el caché? No se puede deshacer.')) return
+    await cacheManager.clearAllCache()
+    cacheManager.getTotalSize().then(setTotalSize)
+    cacheManager.getCompressionStats().then(setCompressionStats)
+  }
 
   function formatSize(bytes) {
     if (!bytes) return '0 B'
@@ -51,6 +69,27 @@ export default function Dashboard() {
           <div className="storage-fill" style={{ width: `${storagePercent}%` }} />
         </div>
       </div>
+
+      {storageFull && (
+        <div className="storage-alert full">
+          <div className="storage-alert-title">⛔ Almacenamiento lleno</div>
+          <p className="storage-alert-sub">No se pueden guardar más páginas ni archivos.</p>
+          <div className="storage-alert-actions">
+            <button className="btn-clear-old" onClick={handleClearOld}>Limpiar antiguo</button>
+            <button className="btn-clear-all" onClick={handleClearAll}>Limpiar todo</button>
+          </div>
+        </div>
+      )}
+
+      {storageWarning && (
+        <div className="storage-alert warn">
+          <div className="storage-alert-title">⚠️ Almacenamiento casi lleno ({Math.round(storagePercent)}%)</div>
+          <p className="storage-alert-sub">Considera eliminar páginas o archivos antiguos.</p>
+          <div className="storage-alert-actions">
+            <button className="btn-clear-old" onClick={handleClearOld}>Limpiar antiguo</button>
+          </div>
+        </div>
+      )}
 
       {/* Stats de compresión */}
       {compressionStats && compressionStats.ratio > 0 && (

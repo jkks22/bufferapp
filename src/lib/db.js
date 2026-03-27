@@ -91,6 +91,20 @@ export const cacheManager = {
            files.reduce((s, f) => s + (f.size || 0), 0)
   },
 
+  // Elimina páginas y archivos con más de `days` días de antigüedad
+  async clearOldCache(days = 30) {
+    const cutoff = Date.now() - days * 24 * 60 * 60 * 1000
+    const deletedPages = await db.pages.where('cachedAt').below(cutoff).delete()
+    const deletedFiles = await db.files.where('cachedAt').below(cutoff).delete()
+    return { deletedPages, deletedFiles }
+  },
+
+  // Elimina todo el caché de páginas y archivos
+  async clearAllCache() {
+    await db.pages.clear()
+    await db.files.clear()
+  },
+
   // Calcula cuánto espacio se ahorró con compresión
   async getCompressionStats() {
     const pages = await db.pages.toArray()
