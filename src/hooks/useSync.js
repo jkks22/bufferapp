@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { queueManager } from '../lib/db'
+import { db, queueManager } from '../lib/db'
 import { useNetwork } from './useNetwork'
 
 const MAX_RETRIES = 3
@@ -61,12 +61,18 @@ export function useSync() {
         break
       }
       case 'SEND_MESSAGE': {
+        const { localId, ...msgPayload } = payload
         const res = await fetch('/api/messages', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+          body: JSON.stringify(msgPayload)
         })
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        // Marca el registro local como sincronizado
+        if (localId) {
+          const saved = await res.json()
+          await db.messages.update(localId, { synced: true, serverId: saved.id })
+        }
         break
       }
       default:
