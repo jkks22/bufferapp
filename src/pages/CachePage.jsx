@@ -13,6 +13,7 @@ export default function CachePage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [dragging, setDragging] = useState(false)
+  const [viewingPage, setViewingPage] = useState(null) // { title, html }
   const fileInputRef = useRef()
 
   const pages = useLiveQuery(() => db.pages.orderBy('cachedAt').reverse().toArray(), []) ?? []
@@ -111,6 +112,14 @@ export default function CachePage() {
       setLoading(false)
       e.target.value = ''
     }
+  }
+
+  // Abre una página guardada en el visor
+  async function openPage(page) {
+    const full = await cacheManager.getPage(page.id)
+    if (!full) return
+    await logAccess(page.id, 'page')
+    setViewingPage({ title: page.title, html: full.html })
   }
 
   // Descarga un archivo guardado
@@ -220,6 +229,7 @@ export default function CachePage() {
                 <div className="item-meta">{formatSize(page.size)} · {formatDate(page.cachedAt)}</div>
                 <div className="item-url">{page.id}</div>
               </div>
+              <button className="btn-open" onClick={() => openPage(page)} title="Abrir">↗</button>
               <button className="btn-delete" onClick={() => cacheManager.deletePage(page.id)}>✕</button>
             </div>
           ))}
@@ -241,6 +251,20 @@ export default function CachePage() {
               <button className="btn-delete" onClick={() => db.files.delete(file.id)}>✕</button>
             </div>
           ))}
+        </div>
+      )}
+      {viewingPage && (
+        <div className="page-viewer-overlay">
+          <div className="page-viewer-header">
+            <span className="page-viewer-title">{viewingPage.title}</span>
+            <button className="page-viewer-close" onClick={() => setViewingPage(null)}>✕ Cerrar</button>
+          </div>
+          <iframe
+            className="page-viewer-frame"
+            srcDoc={viewingPage.html}
+            sandbox="allow-same-origin allow-scripts"
+            title={viewingPage.title}
+          />
         </div>
       )}
     </div>
