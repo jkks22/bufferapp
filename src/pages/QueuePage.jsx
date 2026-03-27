@@ -11,7 +11,7 @@ const TYPE_LABELS = {
 
 export default function QueuePage() {
   const { isOnline } = useNetwork()
-  const { processQueue } = useSync()
+  const { processQueue, syncing } = useSync()
   const queue = useLiveQuery(() => db.syncQueue.orderBy('createdAt').toArray(), []) ?? []
 
   function formatDate(ts) {
@@ -45,15 +45,18 @@ export default function QueuePage() {
       <div className={`status-banner ${isOnline ? 'online' : 'offline'}`}>
         <div className="status-dot" />
         <span>
-          {isOnline
+          {syncing
+            ? 'Sincronizando...'
+            : isOnline
             ? queue.length === 0
               ? 'Todo sincronizado'
               : `${queue.length} item(s) listos para sincronizar`
             : `Sin conexión — ${queue.length} item(s) en espera`}
         </span>
-        {isOnline && queue.length > 0 && (
+        {isOnline && queue.length > 0 && !syncing && (
           <button className="btn-sync" onClick={processQueue}>Sincronizar ahora</button>
         )}
+        {syncing && <span className="syncing-spinner">⏳</span>}
       </div>
 
       <div className="queue-list">

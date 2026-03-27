@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { queueManager } from '../lib/db'
 import { useNetwork } from './useNetwork'
 
@@ -7,6 +7,7 @@ const MAX_RETRIES = 3
 export function useSync() {
   const { isOnline } = useNetwork()
   const isSyncing = useRef(false)
+  const [syncing, setSyncing] = useState(false)
 
   useEffect(() => {
     if (!isOnline) return
@@ -20,6 +21,7 @@ export function useSync() {
 
     console.log(`[Sync] Procesando ${queue.length} item(s) en cola...`)
     isSyncing.current = true
+    setSyncing(true)
 
     for (const item of queue) {
       if (item.retries >= MAX_RETRIES) {
@@ -38,6 +40,7 @@ export function useSync() {
     }
 
     isSyncing.current = false
+    setSyncing(false)
     console.log('[Sync] Cola procesada.')
   }
 
@@ -68,5 +71,5 @@ export function useSync() {
     }
   }
 
-  return { processQueue }
+  return { processQueue, syncing }
 }
