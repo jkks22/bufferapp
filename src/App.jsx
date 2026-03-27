@@ -4,6 +4,7 @@ import Dashboard from './pages/Dashboard'
 import CachePage from './pages/CachePage'
 import QueuePage from './pages/QueuePage'
 import MessagesPage from './pages/MessagesPage'
+import NotFoundPage from './pages/NotFoundPage'
 import Layout from './components/Layout'
 
 function AppInner() {
@@ -15,6 +16,7 @@ function AppInner() {
         <Route path="/cache" element={<CachePage />} />
         <Route path="/messages" element={<MessagesPage />} />
         <Route path="/queue" element={<QueuePage />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </Layout>
   )
