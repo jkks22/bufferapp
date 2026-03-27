@@ -8,20 +8,31 @@ export function usePredictor() {
   const [weakHours, setWeakHours] = useState([])
   const [prefetching, setPrefetching] = useState(false)
   const [lastPrefetched, setLastPrefetched] = useState([])
+  const [autoPrefetchEnabled, setAutoPrefetchEnabled] = useState(
+    () => localStorage.getItem('autoPrefetch') !== 'false'
+  )
+
+  function toggleAutoPrefetch() {
+    setAutoPrefetchEnabled(prev => {
+      localStorage.setItem('autoPrefetch', String(!prev))
+      return !prev
+    })
+  }
 
   // Carga sugerencias al iniciar
   useEffect(() => {
     loadSuggestions()
   }, [])
 
-  // Cuando mejora la señal, intenta pre-descargar automáticamente
+  // Cuando mejora la señal, intenta pre-descargar automáticamente (si está activado)
   useEffect(() => {
+    if (!autoPrefetchEnabled) return
     if (!isOnline) return
     if (signalStrength < 3) return
     if (prefetching) return
 
     autoPrefetch()
-  }, [signalStrength, isOnline])
+  }, [signalStrength, isOnline, autoPrefetchEnabled])
 
   async function loadSuggestions() {
     const [sugs, hours] = await Promise.all([
@@ -61,6 +72,8 @@ export function usePredictor() {
     weakHours,
     prefetching,
     lastPrefetched,
+    autoPrefetchEnabled,
+    toggleAutoPrefetch,
     logAccess,
     formatHour,
     shouldPrefetch: predictor.shouldPrefetch(signalStrength)

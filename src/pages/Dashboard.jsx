@@ -9,7 +9,7 @@ const MAX_STORAGE_BYTES = 150 * 1024 * 1024
 
 export default function Dashboard() {
   const { isOnline, signalStrength } = useNetwork()
-  const { suggestions, weakHours, prefetching, lastPrefetched, formatHour } = usePredictor()
+  const { suggestions, weakHours, prefetching, lastPrefetched, autoPrefetchEnabled, toggleAutoPrefetch, formatHour } = usePredictor()
   const [totalSize, setTotalSize] = useState(0)
   const [compressionStats, setCompressionStats] = useState(null)
 
@@ -130,6 +130,16 @@ export default function Dashboard() {
           ))}
         </div>
       )}
+
+      <div className="autoprefetch-row">
+        <span className="autoprefetch-label">Pre-descarga automática</span>
+        <button
+          className={`toggle-btn ${autoPrefetchEnabled ? 'on' : 'off'}`}
+          onClick={toggleAutoPrefetch}
+        >
+          {autoPrefetchEnabled ? 'Activada' : 'Desactivada'}
+        </button>
+      </div>
 
       {suggestions.length > 0 && (
         <div className="predictor-card">
