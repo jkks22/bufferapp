@@ -19,8 +19,18 @@ export default function CachePage() {
   const files = useLiveQuery(() => db.files.orderBy('cachedAt').reverse().toArray(), []) ?? []
 
   // Guarda una página web
+  function isValidUrl(str) {
+    try {
+      const url = new URL(str)
+      return url.protocol === 'http:' || url.protocol === 'https:'
+    } catch {
+      return false
+    }
+  }
+
   async function cachePage() {
     if (!urlInput.trim()) return
+    if (!isValidUrl(urlInput.trim())) { setError('URL inválida. Debe comenzar con http:// o https://'); return }
     if (!isOnline) { setError('Sin conexión — no puedes descargar nuevas páginas'); return }
     setLoading(true)
     setError('')
