@@ -52,8 +52,13 @@ export default function CachePage() {
     }
   }
 
+  const MAX_FILE_SIZE = 50 * 1024 * 1024 // 50 MB
+
   // Guarda un archivo en IndexedDB
   async function saveFile(file) {
+    if (file.size > MAX_FILE_SIZE) {
+      throw new Error(`"${file.name}" supera el límite de 50 MB`)
+    }
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
       reader.onload = async (e) => {
@@ -89,8 +94,8 @@ export default function CachePage() {
       for (const file of droppedFiles) {
         await saveFile(file)
       }
-    } catch {
-      setError('Error al guardar algún archivo.')
+    } catch (err) {
+      setError(err.message || 'Error al guardar algún archivo.')
     } finally {
       setLoading(false)
     }
@@ -106,8 +111,8 @@ export default function CachePage() {
       for (const file of selectedFiles) {
         await saveFile(file)
       }
-    } catch {
-      setError('Error al guardar algún archivo.')
+    } catch (err) {
+      setError(err.message || 'Error al guardar algún archivo.')
     } finally {
       setLoading(false)
       e.target.value = ''
