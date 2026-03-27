@@ -1,10 +1,14 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { renderHook, act, waitFor } from '@testing-library/react'
+import { renderHook, waitFor } from '@testing-library/react'
 import { useSync } from '../../hooks/useSync'
 import * as dbModule from '../../lib/db'
 
-// Mock del módulo db para aislar de IndexedDB
 vi.mock('../../lib/db', () => ({
+  db: {
+    messages: {
+      update: vi.fn().mockResolvedValue(undefined),
+    }
+  },
   queueManager: {
     getQueue: vi.fn(),
     dequeue: vi.fn(),
@@ -13,7 +17,6 @@ vi.mock('../../lib/db', () => ({
   }
 }))
 
-// Mock de useNetwork para controlar el estado de red
 vi.mock('../../hooks/useNetwork', () => ({
   useNetwork: vi.fn(() => ({ isOnline: true }))
 }))
@@ -25,7 +28,8 @@ beforeEach(() => {
   dbModule.queueManager.getQueue.mockResolvedValue([])
   dbModule.queueManager.dequeue.mockResolvedValue(undefined)
   dbModule.queueManager.incrementRetries.mockResolvedValue(undefined)
-  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true }))
+  dbModule.db.messages.update.mockResolvedValue(undefined)
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: vi.fn().mockResolvedValue({ id: 'server-uuid' }) }))
 })
 
 describe('useSync', () => {
@@ -38,11 +42,8 @@ describe('useSync', () => {
 
   it('procesa la cola automáticamente al estar online', async () => {
     useNetwork.mockReturnValue({ isOnline: true })
-    dbModule.queueManager.getQueue.mockResolvedValue([])
     renderHook(() => useSync())
-    await waitFor(() => {
-      expect(dbModule.queueManager.getQueue).toHaveBeenCalled()
-    })
+    await waitFor(() => expect(dbModule.queueManager.getQueue).toHaveBeenCalled())
   })
 
   it('descarta items con retries >= MAX_RETRIES (3)', async () => {
@@ -51,9 +52,7 @@ describe('useSync', () => {
       { id: 1, type: 'HTTP_REQUEST', payload: { url: 'https://api.com' }, retries: 3 }
     ])
     renderHook(() => useSync())
-    await waitFor(() => {
-      expect(dbModule.queueManager.dequeue).toHaveBeenCalledWith(1)
-    })
+    await waitFor(() => expect(dbModule.queueManager.dequeue).toHaveBeenCalledWith(1))
     expect(fetch).not.toHaveBeenCalled()
   })
 
@@ -63,9 +62,7 @@ describe('useSync', () => {
       { id: 2, type: 'HTTP_REQUEST', payload: { url: 'https://api.com/data', method: 'POST', body: { x: 1 } }, retries: 0 }
     ])
     renderHook(() => useSync())
-    await waitFor(() => {
-      expect(fetch).toHaveBeenCalledWith('https://api.com/data', expect.objectContaining({ method: 'POST' }))
-    })
+    await waitFor(() => expect(fetch).toHaveBeenCalledWith('https://api.com/data', expect.objectContaining({ method: 'POST' })))
     expect(dbModule.queueManager.dequeue).toHaveBeenCalledWith(2)
   })
 
@@ -75,41 +72,55 @@ describe('useSync', () => {
       { id: 3, type: 'SEND_MESSAGE', payload: { content: 'hola', roomId: 'general' }, retries: 0 }
     ])
     renderHook(() => useSync())
-    await waitFor(() => {
-      expect(fetch).toHaveBeenCalledWith('/api/messages', expect.objectContaining({ method: 'POST' }))
-    })
+    await waitFor(() => expect(fetch).toHaveBeenCalledWith('/api/messages', expect.objectContaining({ method: 'POST' })))
     expect(dbModule.queueManager.dequeue).toHaveBeenCalledWith(3)
+  })
+
+  it('SEND_MESSAGE con localId actualiza el registro local como synced', async () => {
+    useNetwork.mockReturnValue({ isOnline: true })
+    dbModule.queueManager.getQueue.mockResolvedValue([
+      { id: 4, type: 'SEND_MESSAGE', payload: { content: 'hola', roomId: 'general', localId: 99 }, retries: 0 }
+    ])
+    renderHook(() => useSync())
+    await waitFor(() => {
+      expect(dbModule.db.messages.update).toHaveBeenCalledWith(99, expect.objectContaining({ synced: true, serverId: 'server-uuid' }))
+    })
   })
 
   it('incrementa retries si el fetch falla', async () => {
     useNetwork.mockReturnValue({ isOnline: true })
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Network error')))
     dbModule.queueManager.getQueue.mockResolvedValue([
-      { id: 4, type: 'HTTP_REQUEST', payload: { url: 'https://api.com' }, retries: 0 }
+      { id: 5, type: 'HTTP_REQUEST', payload: { url: 'https://api.com' }, retries: 0 }
     ])
     renderHook(() => useSync())
-    await waitFor(() => {
-      expect(dbModule.queueManager.incrementRetries).toHaveBeenCalledWith(4)
-    })
+    await waitFor(() => expect(dbModule.queueManager.incrementRetries).toHaveBeenCalledWith(5))
     expect(dbModule.queueManager.dequeue).not.toHaveBeenCalled()
   })
 
   it('incrementa retries si el fetch responde con error HTTP', async () => {
     useNetwork.mockReturnValue({ isOnline: true })
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500 }))
+    // retries: 0 → sin backoff, así el test no necesita fake timers
     dbModule.queueManager.getQueue.mockResolvedValue([
-      { id: 5, type: 'SEND_MESSAGE', payload: { content: 'test' }, retries: 1 }
+      { id: 6, type: 'SEND_MESSAGE', payload: { content: 'test' }, retries: 0 }
     ])
     renderHook(() => useSync())
-    await waitFor(() => {
-      expect(dbModule.queueManager.incrementRetries).toHaveBeenCalledWith(5)
-    })
+    await waitFor(() => expect(dbModule.queueManager.incrementRetries).toHaveBeenCalledWith(6))
   })
 
-  it('expone processQueue como función', () => {
+  it('expone processQueue y syncing', () => {
     useNetwork.mockReturnValue({ isOnline: false })
-    dbModule.queueManager.getQueue.mockResolvedValue([])
     const { result } = renderHook(() => useSync())
     expect(typeof result.current.processQueue).toBe('function')
+    expect(typeof result.current.syncing).toBe('boolean')
+  })
+
+  it('syncing es false cuando no hay items en la cola', async () => {
+    useNetwork.mockReturnValue({ isOnline: true })
+    dbModule.queueManager.getQueue.mockResolvedValue([])
+    const { result } = renderHook(() => useSync())
+    await waitFor(() => expect(dbModule.queueManager.getQueue).toHaveBeenCalled())
+    expect(result.current.syncing).toBe(false)
   })
 })

@@ -30,16 +30,23 @@ router.post('/', (req, res) => {
   res.status(201).json({ ...message, synced: true })
 })
 
-// GET /api/messages/:roomId  — lista mensajes de una sala
+// GET /api/messages/:roomId?limit=50&before=<createdAt>
 router.get('/:roomId', (req, res) => {
   const { roomId } = req.params
-  const messages = db.prepare('SELECT * FROM messages WHERE roomId = ? ORDER BY createdAt ASC').all(roomId)
+  const limit = Math.min(parseInt(req.query.limit) || 50, 100)
+  const before = req.query.before
+
+  const messages = before
+    ? db.prepare('SELECT * FROM messages WHERE roomId = ? AND createdAt < ? ORDER BY createdAt DESC LIMIT ?').all(roomId, before, limit).reverse()
+    : db.prepare('SELECT * FROM messages WHERE roomId = ? ORDER BY createdAt DESC LIMIT ?').all(roomId, limit).reverse()
+
   res.json(messages)
 })
 
-// GET /api/messages  — lista todos los mensajes
-router.get('/', (_req, res) => {
-  const messages = db.prepare('SELECT * FROM messages ORDER BY createdAt ASC').all()
+// GET /api/messages?limit=50
+router.get('/', (req, res) => {
+  const limit = Math.min(parseInt(req.query.limit) || 50, 100)
+  const messages = db.prepare('SELECT * FROM messages ORDER BY createdAt DESC LIMIT ?').all(limit).reverse()
   res.json(messages)
 })
 

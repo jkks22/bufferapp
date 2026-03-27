@@ -3,7 +3,7 @@ import { db, queueManager } from '../lib/db'
 import { useNetwork } from './useNetwork'
 
 const MAX_RETRIES = 3
-const BACKOFF_MS = [2000, 5000, 10000] // espera según número de reintentos previos
+const BACKOFF_MS = [2000, 5000, 10000] // espera para reintento 1, 2, 3 (primer intento no espera)
 
 export function useSync() {
   const { isOnline } = useNetwork()
@@ -31,7 +31,7 @@ export function useSync() {
         continue
       }
       try {
-        const wait = BACKOFF_MS[item.retries] ?? 0
+        const wait = BACKOFF_MS[item.retries - 1] ?? 0
         if (wait > 0) await new Promise(r => setTimeout(r, wait))
         await sendItem(item)
         await queueManager.dequeue(item.id)

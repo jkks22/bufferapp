@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { renderHook, waitFor } from '@testing-library/react'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { renderHook, waitFor, act } from '@testing-library/react'
 import { usePredictor } from '../../hooks/usePredictor'
 
 vi.mock('../../lib/predictor', () => ({
@@ -19,7 +19,12 @@ vi.mock('../../hooks/useNetwork', () => ({
 import { predictor } from '../../lib/predictor'
 import { useNetwork } from '../../hooks/useNetwork'
 
+afterEach(() => {
+  localStorage.clear()
+})
+
 beforeEach(() => {
+  localStorage.clear()
   vi.clearAllMocks()
   predictor.getSuggestions.mockResolvedValue([])
   predictor.getWeakSignalHours.mockResolvedValue([])
@@ -97,5 +102,38 @@ describe('usePredictor', () => {
     predictor.shouldPrefetch.mockReturnValue(true)
     const { result } = renderHook(() => usePredictor())
     expect(result.current.shouldPrefetch).toBe(true)
+  })
+
+  it('autoPrefetchEnabled es true por defecto', () => {
+    useNetwork.mockReturnValue({ isOnline: false, signalStrength: 0 })
+    const { result } = renderHook(() => usePredictor())
+    expect(result.current.autoPrefetchEnabled).toBe(true)
+  })
+
+  it('autoPrefetchEnabled es false si localStorage lo dice', () => {
+    localStorage.setItem('autoPrefetch', 'false')
+    useNetwork.mockReturnValue({ isOnline: false, signalStrength: 0 })
+    const { result } = renderHook(() => usePredictor())
+    expect(result.current.autoPrefetchEnabled).toBe(false)
+  })
+
+  it('toggleAutoPrefetch cambia el estado y lo persiste en localStorage', async () => {
+    useNetwork.mockReturnValue({ isOnline: false, signalStrength: 0 })
+    const { result } = renderHook(() => usePredictor())
+    expect(result.current.autoPrefetchEnabled).toBe(true)
+    act(() => result.current.toggleAutoPrefetch())
+    expect(result.current.autoPrefetchEnabled).toBe(false)
+    expect(localStorage.getItem('autoPrefetch')).toBe('false')
+    act(() => result.current.toggleAutoPrefetch())
+    expect(result.current.autoPrefetchEnabled).toBe(true)
+    expect(localStorage.getItem('autoPrefetch')).toBe('true')
+  })
+
+  it('no pre-descarga si autoPrefetchEnabled es false aunque señal sea buena', async () => {
+    localStorage.setItem('autoPrefetch', 'false')
+    useNetwork.mockReturnValue({ isOnline: true, signalStrength: 4 })
+    renderHook(() => usePredictor())
+    await waitFor(() => expect(predictor.getSuggestions).toHaveBeenCalled())
+    expect(predictor.autoPrefetch).not.toHaveBeenCalled()
   })
 })
