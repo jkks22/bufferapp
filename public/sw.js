@@ -82,6 +82,19 @@ async function networkFirst(request) {
   }
 }
 
+// ── Background Sync ───────────────────────────────────────────────
+// Se dispara cuando el dispositivo recupera conexión (incluso en segundo plano)
+self.addEventListener('sync', event => {
+  if (event.tag === 'sync-queue') {
+    event.waitUntil(notifyClientsToSync())
+  }
+})
+
+async function notifyClientsToSync() {
+  const clients = await self.clients.matchAll({ includeUncontrolled: true, type: 'window' })
+  clients.forEach(client => client.postMessage({ type: 'SW_SYNC_QUEUE' }))
+}
+
 // ── Mensajes desde el cliente ─────────────────────────────────────
 self.addEventListener('message', event => {
   if (event.data?.type === 'SKIP_WAITING') {

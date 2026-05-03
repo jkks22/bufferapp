@@ -15,6 +15,20 @@
 }
 .tab.active { background: var(--bg2); color: var(--accent); border-color: var(--accent); }
 
+.search-input {
+  width: 100%;
+  padding: 9px 12px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 13px;
+  outline: none;
+  font-family: var(--font);
+  box-sizing: border-box;
+}
+.search-input:focus { border-color: var(--accent); }
+
 .url-form { display: flex; gap: 8px; }
 .url-input {
   flex: 1;
@@ -77,6 +91,14 @@
   border-radius: var(--radius);
 }
 .item-icon { font-size: 22px; flex-shrink: 0; }
+.item-thumbnail {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 6px;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+}
 .item-body { flex: 1; min-width: 0; }
 .item-name { font-size: 14px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .item-meta { font-size: 11px; color: var(--text2); margin-top: 2px; }

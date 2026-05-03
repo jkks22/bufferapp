@@ -62,7 +62,7 @@ export default function QueuePage() {
       <div className="queue-list">
         {queue.length === 0 && <div className="empty-state">La cola está vacía</div>}
         {queue.map(item => (
-          <div key={item.id} className="queue-item">
+          <div key={item.id} className={`queue-item ${item.lastError ? 'has-error' : ''}`}>
             <div className="queue-type">{TYPE_LABELS[item.type] || item.type}</div>
             <div className="queue-payload">
               {item.payload?.url || item.payload?.message || 'sin detalle'}
@@ -73,20 +73,25 @@ export default function QueuePage() {
                 <span className="retry-badge">{item.retries} reintentos</span>
               )}
             </div>
+            {item.lastError && (
+              <div className="queue-error">✗ {item.lastError}</div>
+            )}
             <button className="btn-remove" onClick={() => queueManager.dequeue(item.id)}>✕</button>
           </div>
         ))}
       </div>
 
-      <div className="dev-actions">
-        <p className="dev-label">Modo desarrollo</p>
-        <div className="dev-buttons">
-          <button className="btn-dev" onClick={addDemoItem}>+ Agregar item de prueba</button>
-          {queue.length > 0 && (
-            <button className="btn-dev danger" onClick={clearAll}>Limpiar cola</button>
-          )}
+      {import.meta.env.DEV && (
+        <div className="dev-actions">
+          <p className="dev-label">Modo desarrollo</p>
+          <div className="dev-buttons">
+            <button className="btn-dev" onClick={addDemoItem}>+ Agregar item de prueba</button>
+            {queue.length > 0 && (
+              <button className="btn-dev danger" onClick={clearAll}>Limpiar cola</button>
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }

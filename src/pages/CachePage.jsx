@@ -16,8 +16,21 @@ export default function CachePage() {
   const [viewingPage, setViewingPage] = useState(null) // { title, html }
   const fileInputRef = useRef()
 
+  const [search, setSearch] = useState('')
+
   const pages = useLiveQuery(() => db.pages.orderBy('cachedAt').reverse().toArray(), []) ?? []
   const files = useLiveQuery(() => db.files.orderBy('cachedAt').reverse().toArray(), []) ?? []
+
+  const filteredPages = search.trim()
+    ? pages.filter(p =>
+        p.title?.toLowerCase().includes(search.toLowerCase()) ||
+        p.id?.toLowerCase().includes(search.toLowerCase())
+      )
+    : pages
+
+  const filteredFiles = search.trim()
+    ? files.filter(f => f.name?.toLowerCase().includes(search.toLowerCase()))
+    : files
 
   // Guarda una página web
   function isValidUrl(str) {
@@ -54,11 +67,34 @@ export default function CachePage() {
 
   const MAX_FILE_SIZE = 50 * 1024 * 1024 // 50 MB
 
+  // Genera thumbnail 80x80 para imágenes
+  async function generateThumbnail(file) {
+    return new Promise((resolve) => {
+      const url = URL.createObjectURL(file)
+      const img = new Image()
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        const size = 80
+        const ratio = Math.min(size / img.width, size / img.height)
+        canvas.width = Math.round(img.width * ratio)
+        canvas.height = Math.round(img.height * ratio)
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height)
+        URL.revokeObjectURL(url)
+        resolve(canvas.toDataURL('image/jpeg', 0.7))
+      }
+      img.onerror = () => { URL.revokeObjectURL(url); resolve(null) }
+      img.src = url
+    })
+  }
+
   // Guarda un archivo en IndexedDB
   async function saveFile(file) {
     if (file.size > MAX_FILE_SIZE) {
       throw new Error(`"${file.name}" supera el límite de 50 MB`)
     }
+    const isImage = file.type.startsWith('image/')
+    const thumbnail = isImage ? await generateThumbnail(file) : null
+
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
       reader.onload = async (e) => {
@@ -68,6 +104,7 @@ export default function CachePage() {
             type: file.type || 'application/octet-stream',
             size: file.size,
             data: e.target.result, // ArrayBuffer
+            thumbnail,
             cachedAt: Date.now(),
             status: 'cached'
           })
@@ -127,6 +164,19 @@ export default function CachePage() {
     setViewingPage({ title: page.title, html: full.html })
   }
 
+  // Exporta una página como archivo .html
+  async function exportPage(page) {
+    const full = await cacheManager.getPage(page.id)
+    if (!full) return
+    const blob = new Blob([full.html], { type: 'text/html' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${page.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.html`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   // Descarga un archivo guardado
   function downloadFile(file) {
     const blob = new Blob([file.data], { type: file.type })
@@ -175,6 +225,16 @@ export default function CachePage() {
           Archivos ({files.length})
         </button>
       </div>
+
+      {/* Buscador */}
+      {(pages.length > 0 || files.length > 0) && (
+        <input
+          className="search-input"
+          placeholder="Buscar por nombre o URL..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
+      )}
 
       {/* Guardar página */}
       {tab === 'pages' && (
@@ -227,7 +287,8 @@ export default function CachePage() {
       {tab === 'pages' && (
         <div className="item-list">
           {pages.length === 0 && <div className="empty-state">Ninguna página guardada aún</div>}
-          {pages.map(page => (
+          {pages.length > 0 && filteredPages.length === 0 && <div className="empty-state">Sin resultados para "{search}"</div>}
+          {filteredPages.map(page => (
             <div key={page.id} className="cache-item">
               <div className="item-body">
                 <div className="item-name">{page.title}</div>
@@ -235,6 +296,7 @@ export default function CachePage() {
                 <div className="item-url">{page.id}</div>
               </div>
               <button className="btn-open" onClick={() => openPage(page)} title="Abrir">↗</button>
+              <button className="btn-download" onClick={() => exportPage(page)} title="Descargar HTML">↓</button>
               <button className="btn-delete" onClick={() => cacheManager.deletePage(page.id)}>✕</button>
             </div>
           ))}
@@ -245,9 +307,13 @@ export default function CachePage() {
       {tab === 'files' && (
         <div className="item-list">
           {files.length === 0 && <div className="empty-state">Ningún archivo guardado aún</div>}
-          {files.map(file => (
+          {files.length > 0 && filteredFiles.length === 0 && <div className="empty-state">Sin resultados para "{search}"</div>}
+          {filteredFiles.map(file => (
             <div key={file.id} className="cache-item">
-              <div className="item-icon">{getFileIcon(file.type)}</div>
+              {file.thumbnail
+                ? <img src={file.thumbnail} className="item-thumbnail" alt={file.name} />
+                : <div className="item-icon">{getFileIcon(file.type)}</div>
+              }
               <div className="item-body">
                 <div className="item-name">{file.name}</div>
                 <div className="item-meta">{formatSize(file.size)} · {formatDate(file.cachedAt)}</div>

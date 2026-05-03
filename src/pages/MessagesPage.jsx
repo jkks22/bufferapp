@@ -14,8 +14,13 @@ export default function MessagesPage() {
   const [editingAuthor, setEditingAuthor] = useState(false)
   const [authorDraft, setAuthorDraft] = useState(author)
   const [sending, setSending] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hasMore, setHasMore] = useState(false)
   const bottomRef = useRef()
   const inputRef = useRef()
+  const listRef = useRef()
+
+  const PAGE_SIZE = 30
 
   const messages = useLiveQuery(
     () => db.messages.where('roomId').equals(ROOM_ID).sortBy('createdAt'),
@@ -30,16 +35,21 @@ export default function MessagesPage() {
     return () => clearInterval(interval)
   }, [isOnline])
 
-  // Scroll al último mensaje
+  // Scroll al último mensaje solo cuando el usuario está al fondo
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages.length])
 
-  async function fetchFromServer() {
+  async function fetchFromServer(beforeDate) {
     try {
-      const res = await fetch(`/api/messages/${ROOM_ID}`)
+      const url = beforeDate
+        ? `/api/messages/${ROOM_ID}?limit=${PAGE_SIZE}&before=${encodeURIComponent(beforeDate)}`
+        : `/api/messages/${ROOM_ID}?limit=${PAGE_SIZE}`
+      const res = await fetch(url)
       if (!res.ok) return
       const serverMessages = await res.json()
+
+      let added = 0
       for (const msg of serverMessages) {
         const exists = await db.messages.where('serverId').equals(msg.id).count()
         if (exists === 0) {
@@ -51,11 +61,32 @@ export default function MessagesPage() {
             createdAt: msg.createdAt,
             synced: true,
           })
+          added++
         }
       }
+
+      // Si el servidor devolvió PAGE_SIZE mensajes puede haber más
+      if (!beforeDate) setHasMore(serverMessages.length === PAGE_SIZE)
+      return added
     } catch {
       // sin conexión o servidor caído — silencioso
     }
+  }
+
+  async function loadMore() {
+    const oldest = messages[0]
+    if (!oldest) return
+    setLoadingMore(true)
+    const prevScrollHeight = listRef.current?.scrollHeight ?? 0
+    await fetchFromServer(oldest.createdAt)
+    // Mantiene la posición de scroll al insertar mensajes arriba
+    requestAnimationFrame(() => {
+      if (listRef.current) {
+        listRef.current.scrollTop = listRef.current.scrollHeight - prevScrollHeight
+      }
+    })
+    setLoadingMore(false)
+    setHasMore(false)
   }
 
   async function sendMessage() {
@@ -175,7 +206,16 @@ export default function MessagesPage() {
       </div>
 
       {/* Lista de mensajes */}
-      <div className="messages-list">
+      <div className="messages-list" ref={listRef}>
+        {/* Botón cargar más — aparece cuando el servidor tiene mensajes anteriores */}
+        {hasMore && isOnline && messages.length > 0 && (
+          <div className="load-more-row">
+            <button className="btn-load-more" onClick={loadMore} disabled={loadingMore}>
+              {loadingMore ? 'Cargando...' : 'Cargar mensajes anteriores'}
+            </button>
+          </div>
+        )}
+
         {messages.length === 0 && (
           <div className="messages-empty">
             <div className="empty-icon">💬</div>

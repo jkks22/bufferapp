@@ -16,6 +16,18 @@ export function useSync() {
     processQueue()
   }, [isOnline])
 
+  // Escucha mensajes del Service Worker (Background Sync)
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return
+    const handler = (event) => {
+      if (event.data?.type === 'SW_SYNC_QUEUE' && isOnline && !isSyncing.current) {
+        processQueue()
+      }
+    }
+    navigator.serviceWorker.addEventListener('message', handler)
+    return () => navigator.serviceWorker.removeEventListener('message', handler)
+  }, [isOnline])
+
   async function processQueue() {
     const queue = await queueManager.getQueue()
     if (queue.length === 0) return
@@ -38,7 +50,7 @@ export function useSync() {
         console.log(`[Sync] ✓ Item #${item.id} sincronizado`)
       } catch (err) {
         console.error(`[Sync] ✗ Error en item #${item.id}:`, err.message)
-        await queueManager.incrementRetries(item.id)
+        await queueManager.incrementRetries(item.id, err.message)
       }
     }
 

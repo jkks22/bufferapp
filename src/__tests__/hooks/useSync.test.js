@@ -94,7 +94,7 @@ describe('useSync', () => {
       { id: 5, type: 'HTTP_REQUEST', payload: { url: 'https://api.com' }, retries: 0 }
     ])
     renderHook(() => useSync())
-    await waitFor(() => expect(dbModule.queueManager.incrementRetries).toHaveBeenCalledWith(5))
+    await waitFor(() => expect(dbModule.queueManager.incrementRetries).toHaveBeenCalledWith(5, 'Network error'))
     expect(dbModule.queueManager.dequeue).not.toHaveBeenCalled()
   })
 
@@ -106,7 +106,7 @@ describe('useSync', () => {
       { id: 6, type: 'SEND_MESSAGE', payload: { content: 'test' }, retries: 0 }
     ])
     renderHook(() => useSync())
-    await waitFor(() => expect(dbModule.queueManager.incrementRetries).toHaveBeenCalledWith(6))
+    await waitFor(() => expect(dbModule.queueManager.incrementRetries).toHaveBeenCalledWith(6, 'HTTP 500'))
   })
 
   it('expone processQueue y syncing', () => {

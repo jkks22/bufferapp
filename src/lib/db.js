@@ -119,6 +119,15 @@ export const cacheManager = {
 export const queueManager = {
   async enqueue(type, payload) {
     await db.syncQueue.add({ type, payload, createdAt: Date.now(), retries: 0 })
+    // Registra background sync para que el SW procese la cola al recuperar conexión
+    try {
+      if ('serviceWorker' in navigator && 'SyncManager' in window) {
+        const reg = await navigator.serviceWorker.ready
+        await reg.sync.register('sync-queue')
+      }
+    } catch {
+      // Background Sync no disponible en este navegador — no es crítico
+    }
   },
   async getQueue() {
     return db.syncQueue.orderBy('createdAt').toArray()
@@ -126,8 +135,14 @@ export const queueManager = {
   async dequeue(id) {
     await db.syncQueue.delete(id)
   },
-  async incrementRetries(id) {
-    await db.syncQueue.where('id').equals(id).modify(item => { item.retries++ })
+  async incrementRetries(id, errorMessage) {
+    await db.syncQueue.where('id').equals(id).modify(item => {
+      item.retries++
+      if (errorMessage) {
+        item.lastError = errorMessage
+        item.failedAt = Date.now()
+      }
+    })
   },
   async count() {
     return db.syncQueue.count()
