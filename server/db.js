@@ -3,7 +3,10 @@ import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const db = new Database(join(__dirname, 'data.sqlite'))
+// En producción (contenedor) se usa /app/server/data/data.sqlite (volumen montado)
+// En desarrollo se usa server/data.sqlite junto al código
+const dbDir = process.env.DB_PATH || join(__dirname, 'data.sqlite')
+const db = new Database(dbDir)
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS messages (

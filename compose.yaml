@@ -1,0 +1,29 @@
+name: bufferapp
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Containerfile
+    image: bufferapp:latest
+    container_name: bufferapp
+    ports:
+      - "3001:3001"
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      # Ruta del archivo SQLite dentro del contenedor
+      DB_PATH: /app/server/data/data.sqlite
+    volumes:
+      # Persiste la base de datos entre reinicios del contenedor
+      - bufferapp-data:/app/server/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3001/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  bufferapp-data:
