@@ -164,12 +164,21 @@ npm run test:run    # una sola vez
 npm run test:coverage
 ```
 
-57 tests cubren:
+166 tests cubren:
 - `lib/db.js` — cacheManager, queueManager, usageLogger
 - `lib/predictor.js` — getSuggestions, getWeakSignalHours, shouldPrefetch, logAccess, autoPrefetch
 - `hooks/useNetwork.js` — estados iniciales, eventos online/offline, cálculo de señal
 - `hooks/useSync.js` — procesamiento de cola, reintentos, tipos HTTP_REQUEST y SEND_MESSAGE
 - `hooks/usePredictor.js` — carga de sugerencias, auto pre-descarga, formatHour
+- `hooks/usePWAInstall.js` — estados de instalación, beforeinstallprompt, appinstalled, promptInstall
+- `components/Layout.jsx` — barra de red, navegación, estados online/offline
+- `components/InstallBanner.jsx` — visibilidad condicional, click en instalar
+- `components/UpdatePrompt.jsx` — SW waiting, descarte, SKIP_WAITING
+- `pages/Dashboard.jsx` — estadísticas, señal, predictor, cola
+- `pages/CachePage.jsx` — tabs, búsqueda, guardar, visor, eliminar
+- `pages/MessagesPage.jsx` — envío online/offline, edición de autor, sincronización
+- `pages/QueuePage.jsx` — items, sincronizar, limpiar cola
+- `server/routes` — health, messages (CRUD, validación, paginación), demo, 404
 
 Stack: Vitest + jsdom + @testing-library/react + fake-indexeddb
 

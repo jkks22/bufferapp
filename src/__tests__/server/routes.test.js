@@ -125,6 +125,48 @@ describe('POST /api/messages', () => {
     expect(res.status).toBe(400)
   })
 
+  it('rechaza 400 si content supera 2000 caracteres', async () => {
+    const res = await fetch(`${baseUrl}/api/messages`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: 'x'.repeat(2001) }),
+    })
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.error).toMatch(/2000/)
+  })
+
+  it('rechaza 400 si author supera 50 caracteres', async () => {
+    const res = await fetch(`${baseUrl}/api/messages`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: 'Hola', author: 'a'.repeat(51) }),
+    })
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.error).toMatch(/50/)
+  })
+
+  it('rechaza 400 si roomId supera 50 caracteres', async () => {
+    const res = await fetch(`${baseUrl}/api/messages`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: 'Hola', roomId: 'r'.repeat(51) }),
+    })
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.error).toMatch(/50/)
+  })
+
+  it('acepta content con exactamente 2000 caracteres', async () => {
+    const res = await fetch(`${baseUrl}/api/messages`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: 'x'.repeat(2000) }),
+    })
+    expect(res.status).toBe(201)
+  })
+
   it('genera un UUID único por mensaje', async () => {
     const send = () => fetch(`${baseUrl}/api/messages`, {
       method: 'POST',
@@ -166,6 +208,23 @@ describe('GET /api/messages/:roomId', () => {
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.length).toBeLessThanOrEqual(5)
+  })
+
+  it('filtra por ?before= devolviendo solo mensajes anteriores a esa fecha', async () => {
+    const t1 = new Date(Date.now() - 5000).toISOString()
+    const t2 = new Date(Date.now() - 3000).toISOString()
+    const t3 = new Date(Date.now() - 1000).toISOString()
+    inMemoryDb.prepare(`
+      INSERT INTO messages (id, roomId, content, author, createdAt, receivedAt) VALUES (?, ?, ?, ?, ?, ?)
+    `).run('before-1', 'sala-before', 'Antiguo', 'T', t1, t1)
+    inMemoryDb.prepare(`
+      INSERT INTO messages (id, roomId, content, author, createdAt, receivedAt) VALUES (?, ?, ?, ?, ?, ?)
+    `).run('before-2', 'sala-before', 'Reciente', 'T', t3, t3)
+
+    const res = await fetch(`${baseUrl}/api/messages/sala-before?before=${encodeURIComponent(t2)}`)
+    const body = await res.json()
+    expect(body.some(m => m.content === 'Antiguo')).toBe(true)
+    expect(body.some(m => m.content === 'Reciente')).toBe(false)
   })
 })
 

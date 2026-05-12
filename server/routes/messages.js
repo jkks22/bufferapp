@@ -4,12 +4,25 @@ import db from '../db.js'
 
 const router = Router()
 
+const MAX_CONTENT = 2000
+const MAX_AUTHOR  = 50
+const MAX_ROOM    = 50
+
 // POST /api/messages  — recibe un mensaje desde la cola de sincronización
 router.post('/', (req, res) => {
   const { roomId, content, author, createdAt } = req.body
 
   if (!content || typeof content !== 'string' || !content.trim()) {
     return res.status(400).json({ error: 'El campo content es requerido' })
+  }
+  if (content.trim().length > MAX_CONTENT) {
+    return res.status(400).json({ error: `content no puede superar ${MAX_CONTENT} caracteres` })
+  }
+  if (typeof author === 'string' && author.trim().length > MAX_AUTHOR) {
+    return res.status(400).json({ error: `author no puede superar ${MAX_AUTHOR} caracteres` })
+  }
+  if (typeof roomId === 'string' && roomId.trim().length > MAX_ROOM) {
+    return res.status(400).json({ error: `roomId no puede superar ${MAX_ROOM} caracteres` })
   }
 
   const message = {
