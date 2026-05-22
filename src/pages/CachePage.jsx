@@ -1,21 +1,59 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, cacheManager } from '../lib/db'
 import { useNetwork } from '../hooks/useNetwork'
 import { usePredictor } from '../hooks/usePredictor'
 import './CachePage.css'
 
+// Intenta el proxy propio primero; si falla, usa allorigins como fallback
+async function fetchViaProxy(url) {
+  // Proxy propio (más confiable, protegido contra SSRF)
+  try {
+    const res = await fetch(`/api/proxy?url=${encodeURIComponent(url)}`, {
+      signal: AbortSignal.timeout(20000),
+    })
+    if (res.ok) return res.text()
+    if (res.status !== 502 && res.status !== 504) {
+      const err = await res.json().catch(() => ({}))
+      throw new Error(err.error || `Error ${res.status}`)
+    }
+  } catch (e) {
+    if (e.name === 'TimeoutError' || e.name === 'AbortError') throw new Error('La página tardó demasiado en responder')
+    if (!(e instanceof TypeError)) throw e // error semántico del proxy, no reintentes
+  }
+
+  // Fallback: allorigins.win
+  const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`, {
+    signal: AbortSignal.timeout(20000),
+  })
+  if (!res.ok) throw new Error(`Error descargando la página (${res.status})`)
+  return res.text()
+}
+
+function isValidUrl(str) {
+  try {
+    const url = new URL(str)
+    return url.protocol === 'http:' || url.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
+const MAX_FILE_SIZE = 50 * 1024 * 1024 // 50 MB
+
 export default function CachePage() {
   const { isOnline } = useNetwork()
-  const { logAccess, shouldPrefetch } = usePredictor()
+  const { logAccess } = usePredictor()
   const [tab, setTab] = useState('pages')
   const [urlInput, setUrlInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [refreshingId, setRefreshingId] = useState(null)
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
   const [dragging, setDragging] = useState(false)
-  const [viewingPage, setViewingPage] = useState(null) // { title, html }
+  const [viewingPage, setViewingPage] = useState(null)
   const fileInputRef = useRef()
-
+  const successTimer = useRef(null)
   const [search, setSearch] = useState('')
 
   const pages = useLiveQuery(() => db.pages.orderBy('cachedAt').reverse().toArray(), []) ?? []
@@ -32,40 +70,53 @@ export default function CachePage() {
     ? files.filter(f => f.name?.toLowerCase().includes(search.toLowerCase()))
     : files
 
-  // Guarda una página web
-  function isValidUrl(str) {
-    try {
-      const url = new URL(str)
-      return url.protocol === 'http:' || url.protocol === 'https:'
-    } catch {
-      return false
-    }
+  function showSuccess(msg) {
+    setSuccess(msg)
+    setError('')
+    clearTimeout(successTimer.current)
+    successTimer.current = setTimeout(() => setSuccess(''), 4000)
+  }
+
+  async function doFetchAndSave(url) {
+    const html = await fetchViaProxy(url)
+    const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i)
+    const title = titleMatch ? titleMatch[1].trim() : url
+    const stats = await cacheManager.savePage(url, html, title)
+    await logAccess(url, 'page')
+    return { title, stats }
   }
 
   async function cachePage() {
-    if (!urlInput.trim()) return
-    if (!isValidUrl(urlInput.trim())) { setError('URL inválida. Debe comenzar con http:// o https://'); return }
+    const url = urlInput.trim()
+    if (!url) return
+    if (!isValidUrl(url)) { setError('URL inválida. Debe comenzar con http:// o https://'); return }
     if (!isOnline) { setError('Sin conexión — no puedes descargar nuevas páginas'); return }
     setLoading(true)
     setError('')
     try {
-      const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(urlInput)}`
-      const res = await fetch(proxyUrl)
-      if (!res.ok) throw new Error(`Error ${res.status}`)
-      const html = await res.text()
-      const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i)
-      const title = titleMatch ? titleMatch[1].trim() : urlInput
-      await cacheManager.savePage(urlInput, html, title)
-      await logAccess(urlInput, 'page')
+      const { title, stats } = await doFetchAndSave(url)
       setUrlInput('')
+      showSuccess(`"${title}" guardada — ${stats.ratio}% de compresión`)
     } catch (e) {
-      setError('No se pudo descargar la página. ¿Es una URL válida?')
+      setError(e.message || 'No se pudo descargar la página')
     } finally {
       setLoading(false)
     }
   }
 
-  const MAX_FILE_SIZE = 50 * 1024 * 1024 // 50 MB
+  async function refreshPage(page) {
+    if (!isOnline) { setError('Sin conexión — no puedes actualizar páginas'); return }
+    setRefreshingId(page.id)
+    setError('')
+    try {
+      const { stats } = await doFetchAndSave(page.id)
+      showSuccess(`"${page.title}" actualizada — ${stats.ratio}% de compresión`)
+    } catch (e) {
+      setError(e.message || 'No se pudo actualizar la página')
+    } finally {
+      setRefreshingId(null)
+    }
+  }
 
   // Genera thumbnail 80x80 para imágenes
   async function generateThumbnail(file) {
@@ -87,7 +138,6 @@ export default function CachePage() {
     })
   }
 
-  // Guarda un archivo en IndexedDB
   async function saveFile(file) {
     if (file.size > MAX_FILE_SIZE) {
       throw new Error(`"${file.name}" supera el límite de 50 MB`)
@@ -103,7 +153,7 @@ export default function CachePage() {
             name: file.name,
             type: file.type || 'application/octet-stream',
             size: file.size,
-            data: e.target.result, // ArrayBuffer
+            data: e.target.result,
             thumbnail,
             cachedAt: Date.now(),
             status: 'cached'
@@ -119,7 +169,6 @@ export default function CachePage() {
     })
   }
 
-  // Maneja archivos soltados con drag & drop
   async function handleDrop(e) {
     e.preventDefault()
     setDragging(false)
@@ -128,9 +177,9 @@ export default function CachePage() {
     setLoading(true)
     setError('')
     try {
-      for (const file of droppedFiles) {
-        await saveFile(file)
-      }
+      for (const file of droppedFiles) await saveFile(file)
+      const msg = droppedFiles.length > 1 ? `${droppedFiles.length} archivos guardados` : `"${droppedFiles[0].name}" guardado`
+      showSuccess(msg)
     } catch (err) {
       setError(err.message || 'Error al guardar algún archivo.')
     } finally {
@@ -138,16 +187,15 @@ export default function CachePage() {
     }
   }
 
-  // Maneja archivos seleccionados con el input
   async function handleFileInput(e) {
     const selectedFiles = Array.from(e.target.files)
     if (selectedFiles.length === 0) return
     setLoading(true)
     setError('')
     try {
-      for (const file of selectedFiles) {
-        await saveFile(file)
-      }
+      for (const file of selectedFiles) await saveFile(file)
+      const msg = selectedFiles.length > 1 ? `${selectedFiles.length} archivos guardados` : `"${selectedFiles[0].name}" guardado`
+      showSuccess(msg)
     } catch (err) {
       setError(err.message || 'Error al guardar algún archivo.')
     } finally {
@@ -156,7 +204,6 @@ export default function CachePage() {
     }
   }
 
-  // Abre una página guardada en el visor
   async function openPage(page) {
     const full = await cacheManager.getPage(page.id)
     if (!full) return
@@ -164,7 +211,6 @@ export default function CachePage() {
     setViewingPage({ title: page.title, html: full.html })
   }
 
-  // Exporta una página como archivo .html
   async function exportPage(page) {
     const full = await cacheManager.getPage(page.id)
     if (!full) return
@@ -177,7 +223,6 @@ export default function CachePage() {
     URL.revokeObjectURL(url)
   }
 
-  // Descarga un archivo guardado
   function downloadFile(file) {
     const blob = new Blob([file.data], { type: file.type })
     const url = URL.createObjectURL(blob)
@@ -226,7 +271,6 @@ export default function CachePage() {
         </button>
       </div>
 
-      {/* Buscador */}
       {(pages.length > 0 || files.length > 0) && (
         <input
           className="search-input"
@@ -236,7 +280,6 @@ export default function CachePage() {
         />
       )}
 
-      {/* Guardar página */}
       {tab === 'pages' && (
         <div className="url-form">
           <input
@@ -253,7 +296,6 @@ export default function CachePage() {
         </div>
       )}
 
-      {/* Zona de drag & drop para archivos */}
       {tab === 'files' && (
         <div
           className={`dropzone ${dragging ? 'dragging' : ''} ${loading ? 'loading' : ''}`}
@@ -277,16 +319,22 @@ export default function CachePage() {
               ? 'Suelta los archivos aquí'
               : 'Arrastra archivos aquí o toca para seleccionar'}
           </div>
-          <div className="dropzone-sub">PDF, imágenes, documentos, videos y más</div>
+          <div className="dropzone-sub">PDF, imágenes, documentos, videos y más (máx 50 MB)</div>
         </div>
       )}
 
       {error && <p className="form-error">{error}</p>}
+      {success && <p className="form-success">{success}</p>}
 
-      {/* Lista de páginas */}
       {tab === 'pages' && (
         <div className="item-list">
-          {pages.length === 0 && <div className="empty-state">Ninguna página guardada aún</div>}
+          {pages.length === 0 && (
+            <div className="empty-state">
+              <div className="empty-icon">🌐</div>
+              <p>Ninguna página guardada aún</p>
+              <p className="empty-hint">Pega una URL arriba y pulsa Guardar para tenerla disponible sin internet</p>
+            </div>
+          )}
           {pages.length > 0 && filteredPages.length === 0 && <div className="empty-state">Sin resultados para "{search}"</div>}
           {filteredPages.map(page => (
             <div key={page.id} className="cache-item">
@@ -295,7 +343,15 @@ export default function CachePage() {
                 <div className="item-meta">{formatSize(page.size)} · {formatDate(page.cachedAt)}</div>
                 <div className="item-url">{page.id}</div>
               </div>
-              <button className="btn-open" onClick={() => openPage(page)} title="Abrir">↗</button>
+              <button className="btn-open" onClick={() => openPage(page)} title="Ver página">↗</button>
+              <button
+                className="btn-refresh"
+                onClick={() => refreshPage(page)}
+                disabled={!isOnline || refreshingId === page.id}
+                title="Actualizar página"
+              >
+                {refreshingId === page.id ? '⏳' : '↺'}
+              </button>
               <button className="btn-download" onClick={() => exportPage(page)} title="Descargar HTML">↓</button>
               <button className="btn-delete" onClick={() => cacheManager.deletePage(page.id)}>✕</button>
             </div>
@@ -303,10 +359,15 @@ export default function CachePage() {
         </div>
       )}
 
-      {/* Lista de archivos */}
       {tab === 'files' && (
         <div className="item-list">
-          {files.length === 0 && <div className="empty-state">Ningún archivo guardado aún</div>}
+          {files.length === 0 && (
+            <div className="empty-state">
+              <div className="empty-icon">📁</div>
+              <p>Ningún archivo guardado aún</p>
+              <p className="empty-hint">Arrastra PDFs, imágenes, documentos o videos para guardarlos offline</p>
+            </div>
+          )}
           {files.length > 0 && filteredFiles.length === 0 && <div className="empty-state">Sin resultados para "{search}"</div>}
           {filteredFiles.map(file => (
             <div key={file.id} className="cache-item">
@@ -324,6 +385,7 @@ export default function CachePage() {
           ))}
         </div>
       )}
+
       {viewingPage && (
         <div className="page-viewer-overlay">
           <div className="page-viewer-header">
@@ -333,7 +395,7 @@ export default function CachePage() {
           <iframe
             className="page-viewer-frame"
             srcDoc={viewingPage.html}
-            sandbox="allow-same-origin allow-scripts"
+            sandbox="allow-scripts"
             title={viewingPage.title}
           />
         </div>

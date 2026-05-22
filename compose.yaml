@@ -5,6 +5,9 @@ services:
     build:
       context: .
       dockerfile: Containerfile
+      # Usa formato docker para que HEALTHCHECK funcione en Podman
+      args:
+        BUILDKIT_INLINE_CACHE: "1"
     image: bufferapp:latest
     container_name: bufferapp
     ports:
@@ -12,10 +15,10 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3001
-      # Ruta del archivo SQLite dentro del contenedor
       DB_PATH: /app/server/data/data.sqlite
+      # Descomenta y rellena en producción:
+      # CORS_ORIGIN: https://tudominio.com
     volumes:
-      # Persiste la base de datos entre reinicios del contenedor
       - bufferapp-data:/app/server/data
     restart: unless-stopped
     healthcheck:
@@ -23,7 +26,7 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 10s
+      start_period: 15s
 
 volumes:
   bufferapp-data:

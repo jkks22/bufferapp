@@ -270,6 +270,55 @@ describe('POST /api/demo', () => {
 })
 
 // ─────────────────────────────────────────────
+// GET /api/proxy
+// ─────────────────────────────────────────────
+
+describe('GET /api/proxy', () => {
+  it('devuelve 400 si falta el parámetro url', async () => {
+    const res = await fetch(`${baseUrl}/api/proxy`)
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.error).toMatch(/url/)
+  })
+
+  it('devuelve 400 si la URL es inválida', async () => {
+    const res = await fetch(`${baseUrl}/api/proxy?url=no-es-una-url`)
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.error).toBeTruthy()
+  })
+
+  it('bloquea URLs con protocolo no http/https', async () => {
+    const res = await fetch(`${baseUrl}/api/proxy?url=ftp://example.com`)
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.error).toMatch(/http/)
+  })
+
+  it('bloquea URLs de localhost (SSRF)', async () => {
+    const res = await fetch(`${baseUrl}/api/proxy?url=http://localhost/secret`)
+    expect(res.status).toBe(403)
+    const body = await res.json()
+    expect(body.error).toBeTruthy()
+  })
+
+  it('bloquea URLs de 127.0.0.1 (SSRF)', async () => {
+    const res = await fetch(`${baseUrl}/api/proxy?url=http://127.0.0.1:8080/internal`)
+    expect(res.status).toBe(403)
+  })
+
+  it('bloquea URLs de red privada 192.168.x.x (SSRF)', async () => {
+    const res = await fetch(`${baseUrl}/api/proxy?url=http://192.168.1.1/admin`)
+    expect(res.status).toBe(403)
+  })
+
+  it('bloquea URLs de file://', async () => {
+    const res = await fetch(`${baseUrl}/api/proxy?url=${encodeURIComponent('file:///etc/passwd')}`)
+    expect(res.status).toBe(400)
+  })
+})
+
+// ─────────────────────────────────────────────
 // Rutas no existentes
 // ─────────────────────────────────────────────
 

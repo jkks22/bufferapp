@@ -141,13 +141,13 @@ describe('CachePage', () => {
 
   it('abre el visor al hacer click en una página', async () => {
     render(<CachePage />)
-    fireEvent.click(screen.getAllByTitle('Abrir')[0])
+    fireEvent.click(screen.getAllByTitle('Ver página')[0])
     expect(await screen.findByText(/Cerrar/)).toBeInTheDocument()
   })
 
   it('el visor se cierra al hacer click en Cerrar', async () => {
     render(<CachePage />)
-    fireEvent.click(screen.getAllByTitle('Abrir')[0])
+    fireEvent.click(screen.getAllByTitle('Ver página')[0])
     fireEvent.click(await screen.findByText(/Cerrar/))
     expect(screen.queryByText(/Cerrar/)).not.toBeInTheDocument()
   })

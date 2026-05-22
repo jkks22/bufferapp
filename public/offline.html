@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sin conexión — BufferApp</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'DM Sans', system-ui, sans-serif;
+      background: #0f0f0f;
+      color: #f0f0f0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100dvh;
+      padding: 24px;
+    }
+    .container {
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      max-width: 320px;
+    }
+    .icon { font-size: 64px; }
+    h1 { font-size: 22px; font-weight: 700; }
+    p { color: #888; font-size: 14px; line-height: 1.6; }
+    a {
+      display: inline-block;
+      margin-top: 8px;
+      padding: 10px 24px;
+      border-radius: 8px;
+      background: #3b82f6;
+      color: #fff;
+      font-size: 14px;
+      text-decoration: none;
+      font-weight: 500;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="icon">📡</div>
+    <h1>Sin conexión</h1>
+    <p>No tienes acceso a internet ahora mismo. El contenido que guardaste en caché sigue disponible dentro de la app.</p>
+    <a href="/">Abrir BufferApp</a>
+  </div>
+</body>
+</html>

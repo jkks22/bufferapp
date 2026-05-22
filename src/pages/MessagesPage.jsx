@@ -27,17 +27,32 @@ export default function MessagesPage() {
     []
   ) ?? []
 
-  // Fetch mensajes del servidor al montar y cada 10s mientras online
+  // Fetch mensajes del servidor al montar y cada 10s mientras online y la pestaña visible
   useEffect(() => {
     if (!isOnline) return
+
     fetchFromServer()
-    const interval = setInterval(fetchFromServer, 10000)
-    return () => clearInterval(interval)
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') fetchFromServer()
+    }, 10000)
+
+    const onVisible = () => { if (isOnline) fetchFromServer() }
+    document.addEventListener('visibilitychange', onVisible)
+
+    return () => {
+      clearInterval(interval)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
   }, [isOnline])
 
-  // Scroll al último mensaje solo cuando el usuario está al fondo
+  // Scroll al último mensaje solo si el usuario ya estaba al fondo
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    const list = listRef.current
+    if (!list) return
+    const distFromBottom = list.scrollHeight - list.scrollTop - list.clientHeight
+    if (distFromBottom < 120) {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
   }, [messages.length])
 
   async function fetchFromServer(beforeDate) {

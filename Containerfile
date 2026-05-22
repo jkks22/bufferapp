@@ -3,11 +3,9 @@ FROM node:22-alpine AS builder
 
 WORKDIR /app
 
-# Instala dependencias primero (capa cacheada si package.json no cambia)
 COPY package.json package-lock.json ./
 RUN npm ci --ignore-scripts
 
-# Copia el código fuente y construye
 COPY index.html vite.config.js ./
 COPY public/ ./public/
 COPY src/ ./src/
@@ -21,19 +19,21 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3001
 
-# Solo las dependencias de producción
+# Instala herramientas de compilación necesarias para better-sqlite3,
+# compila las dependencias de producción y las limpia en una sola capa
+RUN apk add --no-cache python3 make g++
+
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev --ignore-scripts
+RUN npm ci --omit=dev && apk del make g++
 
-# Código del servidor
 COPY server/ ./server/
-
-# Build del frontend generado en stage 1
 COPY --from=builder /app/dist ./dist
 
-# Volumen para persistir la base de datos SQLite
 VOLUME ["/app/server/data"]
 
 EXPOSE 3001
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD wget -qO- http://localhost:3001/api/health || exit 1
 
 CMD ["node", "server/index.js"]

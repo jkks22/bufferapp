@@ -1,17 +1,20 @@
-const CACHE_NAME = 'bufferapp-v1'
+// CACHE_VERSION se inyecta en build; en dev usa timestamp para forzar refresh
+const CACHE_VERSION = self.__CACHE_VERSION__ || Date.now()
+const CACHE_NAME = `bufferapp-v${CACHE_VERSION}`
 
-// Assets que se precargan al instalar el SW
-const PRECACHE_ASSETS = ['/', '/index.html']
+const PRECACHE_ASSETS = ['/', '/index.html', '/offline.html']
 
-// ── Install: precachea el shell de la app ──────────────────────────
+// ── Install ────────────────────────────────────────────────────────
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(PRECACHE_ASSETS))
+    caches.open(CACHE_NAME).then(cache =>
+      cache.addAll(PRECACHE_ASSETS).catch(() => cache.add('/'))
+    )
   )
   self.skipWaiting()
 })
 
-// ── Activate: limpia caches antiguas ──────────────────────────────
+// ── Activate: limpia caches de versiones anteriores ───────────────
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys =>
@@ -21,13 +24,13 @@ self.addEventListener('activate', event => {
   self.clients.claim()
 })
 
-// ── Fetch: estrategia por tipo de request ─────────────────────────
+// ── Fetch ─────────────────────────────────────────────────────────
 self.addEventListener('fetch', event => {
   const { request } = event
   const url = new URL(request.url)
 
-  // API del backend → Network Only (nunca cachear)
-  if (url.pathname.startsWith('/api/')) return
+  // API del backend → Network Only (nunca cachear), excepto el proxy de páginas
+  if (url.pathname.startsWith('/api/') && !url.pathname.startsWith('/api/proxy')) return
 
   // Proxy de allorigins → Network First con fallback de caché
   if (url.hostname === 'api.allorigins.win') {
@@ -35,7 +38,7 @@ self.addEventListener('fetch', event => {
     return
   }
 
-  // Assets del app shell (JS, CSS, HTML) → Cache First
+  // Assets del app shell (JS, CSS, HTML, fuentes, imágenes) → Cache First
   if (
     request.destination === 'script' ||
     request.destination === 'style' ||
@@ -47,7 +50,6 @@ self.addEventListener('fetch', event => {
     return
   }
 
-  // Resto → Network First
   event.respondWith(networkFirst(request))
 })
 
@@ -64,7 +66,10 @@ async function cacheFirst(request) {
     }
     return response
   } catch {
-    return new Response('Sin conexión', { status: 503 })
+    if (request.destination === 'document') {
+      return caches.match('/offline.html') || offlineFallback()
+    }
+    return offlineFallback()
   }
 }
 
@@ -78,12 +83,22 @@ async function networkFirst(request) {
     return response
   } catch {
     const cached = await caches.match(request)
-    return cached || new Response('Sin conexión', { status: 503 })
+    if (cached) return cached
+    if (request.destination === 'document') {
+      return caches.match('/offline.html') || offlineFallback()
+    }
+    return offlineFallback()
   }
 }
 
+function offlineFallback() {
+  return new Response(
+    '<!doctype html><html><body style="font-family:system-ui;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#0f0f0f;color:#f0f0f0"><div style="text-align:center"><h1>Sin conexión</h1><p>Abre BufferApp cuando tengas señal.</p></div></body></html>',
+    { status: 503, headers: { 'Content-Type': 'text/html' } }
+  )
+}
+
 // ── Background Sync ───────────────────────────────────────────────
-// Se dispara cuando el dispositivo recupera conexión (incluso en segundo plano)
 self.addEventListener('sync', event => {
   if (event.tag === 'sync-queue') {
     event.waitUntil(notifyClientsToSync())
