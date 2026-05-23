@@ -22,6 +22,46 @@
   transition: width 0.6s ease;
 }
 
+.persist-badge { color: #4ade80; font-size: 11px; }
+.persist-warning {
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--text2);
+  background: #1a1200;
+  border: 1px solid #3d2e00;
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+.btn-persist {
+  background: none;
+  border: 1px solid #ca8a04;
+  color: #facc15;
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 11px;
+  cursor: pointer;
+}
+.btn-persist:hover { background: #1a1200; }
+
+.backup-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+.btn-backup {
+  flex: 1;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--text2);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.btn-backup:hover { color: var(--text); border-color: var(--accent); }
+.backup-msg { font-size: 12px; color: var(--text2); margin-top: 6px; }
+
 /* Compresión */
 .compression-card {
   background: #0d1a2e;

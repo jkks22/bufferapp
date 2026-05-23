@@ -161,3 +161,63 @@ export const usageLogger = {
       .map(([resourceId, count]) => ({ resourceId, count }))
   }
 }
+
+export const backupManager = {
+  async exportAll() {
+    const [pages, files, messages] = await Promise.all([
+      db.pages.toArray(),
+      db.files.toArray(),
+      db.messages.toArray(),
+    ])
+    const filesExport = files.map(({ data, ...rest }) => ({
+      ...rest,
+      data: data ? bufToB64(data) : null,
+      _b64: true,
+    }))
+    const blob = new Blob(
+      [JSON.stringify({ v: 1, exportedAt: Date.now(), pages, files: filesExport, messages })],
+      { type: 'application/json' }
+    )
+    const a = Object.assign(document.createElement('a'), {
+      href: URL.createObjectURL(blob),
+      download: `bufferapp-${new Date().toISOString().slice(0, 10)}.json`,
+    })
+    a.click()
+    URL.revokeObjectURL(a.href)
+  },
+
+  async importAll(file) {
+    const backup = JSON.parse(await file.text())
+    if (backup.v !== 1) throw new Error('Formato de backup no reconocido')
+    const files = (backup.files || []).map(({ _b64, data, ...rest }) => ({
+      ...rest,
+      data: (_b64 && data) ? b64ToBuf(data) : data,
+    }))
+    await db.transaction('rw', db.pages, db.files, db.messages, async () => {
+      if (backup.pages?.length) await db.pages.bulkPut(backup.pages)
+      if (files.length) await db.files.bulkPut(files)
+      if (backup.messages?.length) await db.messages.bulkPut(backup.messages)
+    })
+    return {
+      pages: backup.pages?.length ?? 0,
+      files: files.length,
+      messages: backup.messages?.length ?? 0,
+    }
+  },
+}
+
+function bufToB64(buf) {
+  const bytes = new Uint8Array(buf)
+  let binary = ''
+  for (let i = 0; i < bytes.length; i += 8192) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + 8192))
+  }
+  return btoa(binary)
+}
+
+function b64ToBuf(b64) {
+  const bin = atob(b64)
+  const arr = new Uint8Array(bin.length)
+  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i)
+  return arr.buffer
+}
